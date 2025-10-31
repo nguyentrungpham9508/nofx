@@ -1,0 +1,45 @@
+name: Run Docker Parallel Jobs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '*/15 * * * *'
+
+jobs:
+  run-docker:
+    name: Run Docker Containers (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12   # ⏱ Giới hạn chạy tối đa 12 phút
+    strategy:
+      matrix:
+        job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+      fail-fast: false
+
+    steps:
+      - name: 🐳 Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🐳 Pull Docker Image
+        run: docker pull nduythanh1/selenium-videozz-multiprocess
+
+      - name: ▶️ Run 3 Docker Containers in Parallel
+        run: |
+          echo "Starting Docker containers for job ${{ matrix.job_id }}..."
+          
+          docker run -d --name c1_${{ matrix.job_id }} -e JOB_ID=${{ matrix.job_id }} nduythanh1/selenium-videozz-multiprocess
+          docker run -d --name c2_${{ matrix.job_id }} -e JOB_ID=${{ matrix.job_id }} nduythanh1/selenium-videozz-multiprocess
+          docker run -d --name c3_${{ matrix.job_id }} -e JOB_ID=${{ matrix.job_id }} nduythanh1/selenium-videozz-multiprocess
+          
+          # Wait for all containers to finish
+          docker wait c1_${{ matrix.job_id }} c2_${{ matrix.job_id }} c3_${{ matrix.job_id }}
+          
+          echo "✅ All containers for job ${{ matrix.job_id }} completed."
+
+      - name: 🧹 Clean up containers
+        if: always()
+        run: |
+          docker rm -f c1_${{ matrix.job_id }} c2_${{ matrix.job_id }} c3_${{ matrix.job_id }} || true
+          docker system prune -f
